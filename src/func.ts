@@ -112,14 +112,12 @@ const GetInitBoxItemData = (box_type: number) => {
 const RoundProbs = (new_probs: number[], digit: number) => {
     return new_probs.map(prob => Number(prob.toFixed(6)))
 }
-let probs: any = {}
+
 // Generate dynamic probs + return Items
 function GetBoxItem(n: number, address: string, unbox_blockhash: string, boxId: number, turn: number, box_type: number): string {
     const { box_weight, init_prob } = GetInitBoxItemData(box_type)
-    const key = `${n}_${box_type}`
     if (n < 1) throw new Error(`invalid number`);
     if (n === 1) return SelectRunes(RUNE_NAMES, init_prob, address, unbox_blockhash, boxId, turn);
-    if (probs[key]) return SelectRunes(RUNE_NAMES, probs[key], address, unbox_blockhash, boxId, turn);
     let cum_sum = 0;
     let new_probs: number[] = [...init_prob];
     // console.log(`after with n= ${n}, type= ${BOX_TYPE[box_type]}`)
@@ -131,29 +129,18 @@ function GetBoxItem(n: number, address: string, unbox_blockhash: string, boxId: 
             let remain_w = (index_weight === TOTAL_RUNE_TYPE - 1) ? 0 : (cum_sum - n)
             let cum_probs = 0;
             let multi_probs = 0;
-            let total_remove_probs = 0
             let index_prob = 0
             for (let prob of init_prob) {
                 if (index_prob < index_weight) {
                     cum_probs = Math.max(...new_probs.slice(0, index_prob + 1));
-                    total_remove_probs += new_probs[index_prob]
                     new_probs[index_prob] = 0;
-                } else if (index_prob === index_weight && index_weight < TOTAL_RUNE_TYPE - 4) {
+                } else if (index_prob === index_weight && index_weight < TOTAL_RUNE_TYPE - 1) {
                     multi_probs = (remain_w === 0) ? Math.max(...new_probs.slice(0, index_prob + 1)) : (init_prob[index_prob] - cum_probs) * (weight - remain_w) / weight + cum_probs
                     new_probs[index_prob] = (remain_w === 0) ? 0 : prob - multi_probs;
-                    total_remove_probs += multi_probs
-                } else if (index_prob > index_weight && index_prob < TOTAL_RUNE_TYPE - 4) {
+                } else if (index_prob > index_weight && index_prob < TOTAL_RUNE_TYPE - 1) {
                     new_probs[index_prob] = prob - multi_probs;
-                    total_remove_probs += multi_probs
-                } else if (index_prob === TOTAL_RUNE_TYPE - 4) {
-                    new_probs[index_prob] = new_probs[index_prob] + total_remove_probs * 4 / 10;
-                } else if (index_prob === TOTAL_RUNE_TYPE - 3) {
-                    new_probs[index_prob] = new_probs[index_prob] + total_remove_probs * 4 / 10;
-                } else if (index_prob === TOTAL_RUNE_TYPE - 2) {
-                    new_probs[index_prob] = new_probs[index_prob] + total_remove_probs / 10;
-
-                } else if (index_prob === TOTAL_RUNE_TYPE - 1) {
-                    new_probs[index_prob] = new_probs[index_prob] + total_remove_probs / 10;
+                } else {
+                    new_probs[index_prob] = 1 - GetSum(new_probs.slice(0, TOTAL_RUNE_TYPE - 1));
                 }
                 index_prob++
             }
@@ -162,9 +149,10 @@ function GetBoxItem(n: number, address: string, unbox_blockhash: string, boxId: 
     }
     // console.log("before")
     new_probs = RoundProbs(new_probs, 6)
-    probs[key] = new_probs
+    // console.table({new_probs})
     return SelectRunes(RUNE_NAMES, new_probs, address, unbox_blockhash, boxId, turn);
 }
+
 
 export function OpenBox(address: string, unbox_blockhash: string, buybox_blockHash: string, boxId: number, box_type: number) {
     let box_name = BOX_TYPE[box_type]
